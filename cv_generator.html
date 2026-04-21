@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Générateur de CV - Format Fidèle</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        :root { --primary: #333; --accent: #1a2a6c; --bg-editor: #f0f2f5; }
+        body { font-family: 'Arial', sans-serif; background: var(--bg-editor); margin: 0; display: flex; color: #333; }
+        
+        /* --- ÉDITEUR (GAUCHE) --- */
+        .editor { width: 35%; height: 100vh; padding: 20px; overflow-y: auto; background: white; border-right: 2px solid #ddd; box-sizing: border-box; }
+        .section-edit { background: #fafafa; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #eee; }
+        h3 { margin-top: 0; font-size: 14px; text-transform: uppercase; color: var(--accent); border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+        label { display: block; font-size: 11px; font-weight: bold; margin: 8px 0 3px; color: #666; }
+        input, textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+        .btn { background: var(--accent); color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 10px; }
+
+        /* --- PREVIEW (DROITE) --- */
+        .preview { width: 65%; height: 100vh; overflow-y: auto; display: flex; justify-content: center; padding: 20px; box-sizing: border-box; }
+        .cv-page { width: 210mm; min-height: 297mm; background: white; padding: 15mm; box-shadow: 0 0 15px rgba(0,0,0,0.2); position: relative; }
+        
+        /* Header */
+        .cv-header { text-align: center; border-bottom: 1px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+        .cv-name { margin: 0; text-transform: uppercase; letter-spacing: 4px; font-size: 26px; }
+        .cv-job { font-weight: bold; text-transform: uppercase; font-size: 14px; margin-top: 5px; }
+
+        /* Profil & Contact Grid */
+        .top-grid { display: grid; grid-template-columns: 140px 1fr 180px; gap: 20px; align-items: start; margin-bottom: 25px; }
+        .photo-circle { width: 130px; height: 130px; border-radius: 50%; overflow: hidden; background: #eee; border: 1px solid #ddd; }
+        .photo-circle img { width: 100%; height: 100%; object-fit: cover; }
+        .contact-info { font-size: 11px; line-height: 1.6; }
+        
+        /* Sections */
+        .section-title { font-size: 14px; text-transform: uppercase; border-bottom: 1px solid #000; font-weight: bold; margin: 20px 0 10px; padding-bottom: 2px; }
+        .cv-text { font-size: 12px; line-height: 1.5; }
+        ul { list-style: none; padding: 0; margin: 5px 0; }
+        li { font-size: 12px; margin-bottom: 4px; position: relative; padding-left: 20px; }
+        li::before { content: "✓"; position: absolute; left: 0; font-weight: bold; }
+
+        /* Expérience */
+        .exp-item { margin-bottom: 15px; }
+        .exp-header { display: flex; justify-content: space-between; font-weight: bold; font-size: 12.5px; }
+        .exp-sub { font-style: italic; color: #666; font-size: 11px; margin-bottom: 5px; }
+
+        /* Footer Grid */
+        .footer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 10px; }
+
+        @media print {
+            .editor { display: none; }
+            .preview { width: 100%; padding: 0; }
+            .cv-page { box-shadow: none; margin: 0; width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="editor">
+    <h2>Éditer mon CV</h2>
+    
+    <div class="section-edit">
+        <h3>1. En-tête</h3>
+        <input type="file" accept="image/*" onchange="loadImg(event)">
+        <input type="text" id="inName" placeholder="NOM PRÉNOM" oninput="sync()">
+        <input type="text" id="inJob" placeholder="TITRE PROFESSIONNEL" oninput="sync()">
+    </div>
+
+    <div class="section-edit">
+        <h3>2. Profil & Contact</h3>
+        <textarea id="inProfil" placeholder="Texte de présentation..." oninput="sync()"></textarea>
+        <input type="text" id="inLoc" placeholder="📍 Ville, Pays" oninput="sync()">
+        <input type="text" id="inTel" placeholder="📞 Téléphone" oninput="sync()">
+        <input type="text" id="inMail" placeholder="📧 Email" oninput="sync()">
+    </div>
+
+    <div class="section-edit">
+        <h3>3. Compétences Techniques</h3>
+        <textarea id="inTech" placeholder="Langages : Python, JS... (un par ligne)" oninput="sync()"></textarea>
+    </div>
+
+    <div class="section-edit">
+        <h3>4. Expériences</h3>
+        <div id="exp-inputs"></div>
+        <button class="btn" onclick="addExp()">+ Ajouter une expérience</button>
+    </div>
+
+    <button class="btn" onclick="downloadPDF()" style="background:#27ae60; margin-top:20px;">Télécharger en PDF</button>
+</div>
+
+<div class="preview">
+    <div class="cv-page">
+        <!-- Header -->
+        <header class="cv-header">
+            <h1 class="cv-name" id="outName">LÉA DIALLO</h1>
+            <div class="cv-job" id="outJob">ÉTUDIANTE EN INFORMATIQUE</div>
+        </header>
+
+        <!-- Profil Grid -->
+        <div class="top-grid">
+            <div class="photo-circle"><img id="outPhoto" src="https://placeholder.com"></div>
+            <div>
+                <div class="section-title" style="margin-top:0">Profil</div>
+                <div class="cv-text" id="outProfil">Étudiante passionnée...</div>
+            </div>
+            <div class="contact-info">
+                <div id="outLoc">📍 0971, Conakry</div>
+                <div id="outTel">📞 +224 000 00 00</div>
+                <div id="outMail">📧 lea.diallo@gmail.com</div>
+            </div>
+        </div>
+
+        <!-- Compétences Techniques -->
+        <div class="section-title">Compétences Techniques</div>
+        <ul id="outTech">
+            <li><strong>Langages :</strong> Python, JavaScript...</li>
+        </ul>
+
+        <!-- Expériences -->
+        <div class="section-title">Expérience</div>
+        <div id="outExp">
+            <!-- Les expériences s'ajoutent ici -->
+        </div>
+
+        <!-- Bas de page -->
+        <div class="footer-grid">
+            <div>
+                <div class="section-title">Formation</div>
+                <div class="cv-text">
+                    <strong>Licence en Informatique</strong><br>
+                    Univ. Gamal Abdel Nasser - 2021
+                </div>
+            </div>
+            <div>
+                <div class="section-title">Compétences Transversales</div>
+                <ul>
+                    <li>Travail en équipe</li>
+                    <li>Communication</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function loadImg(e) { document.getElementById('outPhoto').src = URL.createObjectURL(e.target.files[0]); }
+
+    function sync() {
+        document.getElementById('outName').innerText = document.getElementById('inName').value || "LÉA DIALLO";
+        document.getElementById('outJob').innerText = (document.getElementById('inJob').value || "TITRE").toUpperCase();
+        document.getElementById('outProfil').innerText = document.getElementById('inProfil').value || "Texte profil...";
+        document.getElementById('outLoc').innerText = "📍 " + (document.getElementById('inLoc').value || "Lieu");
+        document.getElementById('outTel').innerText = "📞 " + (document.getElementById('inTel').value || "Tél");
+        document.getElementById('outMail').innerText = "📧 " + (document.getElementById('inMail').value || "Email");
+
+        const techVal = document.getElementById('inTech').value;
+        document.getElementById('outTech').innerHTML = techVal.split('\n').map(l => `<li>${l}</li>`).join('');
+
+        updateExp();
+    }
+
+    function addExp() {
+        const div = document.createElement('div');
+        div.className = "section-edit";
+        div.innerHTML = `
+            <input type="text" class="e-t" placeholder="Titre du projet" oninput="sync()">
+            <input type="text" class="e-d" placeholder="Dates" oninput="sync()">
+            <input type="text" class="e-s" placeholder="Sous-titre (ex: Projet univ.)" oninput="sync()">
+            <textarea class="e-l" placeholder="Points clés (un par ligne)" oninput="sync()"></textarea>
+        `;
+        document.getElementById('exp-inputs').appendChild(div);
+    }
+
+    function updateExp() {
+        const titles = document.querySelectorAll('.e-t');
+        const dates = document.querySelectorAll('.e-d');
+        const subs = document.querySelectorAll('.e-s');
+        const lists = document.querySelectorAll('.e-l');
+        let html = "";
+        titles.forEach((t, i) => {
+            const lines = lists[i].value.split('\n').map(li => `<li>${li}</li>`).join('');
+            html += `
+                <div class="exp-item">
+                    <div class="exp-header"><span>${t.value}</span><span>${dates[i].value}</span></div>
+                    <div class="exp-sub">${subs[i].value}</div>
+                    <ul>${lines}</ul>
+                </div>`;
+        });
+        document.getElementById('outExp').innerHTML = html;
+    }
+
+    function downloadPDF() {
+        const element = document.querySelector('.cv-page');
+        const name = document.getElementById('inName').value || 'CV';
+        const opt = {
+            margin: 0,
+            filename: `${name.replace(/\s+/g, '_')}_CV.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        html2pdf().set(opt).from(element).save();
+    }
+    
+    // Initialisation
+    addExp();
+</script>
+</body>
+</html>
